@@ -1,0 +1,14 @@
+## Interface: 120000
+## Title: Guild|cFF00FF00MOTD
+## Notes: Guild MOTD viewer
+## Author: Mythris
+## Version: 12.0.0.00
+## X-Category: Guild
+##SavedVariablesPerCharacter: GuildMOTD_ShowOnlyChanges, GuildMOTD_LastMOTD
+
+LibStub.lua
+CallbackHandler-1.0.lua
+LibDataBroker-1.1.lua
+localization.lua
+GuildMOTD.lua
+GuildMOTD.xml
