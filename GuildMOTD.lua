@@ -96,6 +96,10 @@ local function SetUseCharacterSettings(enabled)
 		GuildMOTD_Char.ShowOnlyChanges = GuildMOTD_Global.ShowOnlyChanges
 		GuildMOTD_Char.ShowOncePerSession = GuildMOTD_Global.ShowOncePerSession
 		GuildMOTD_Char.Opacity = GuildMOTD_Global.Opacity
+		GuildMOTD_Char.WindowPoint = GuildMOTD_Global.WindowPoint
+		GuildMOTD_Char.WindowRelPoint = GuildMOTD_Global.WindowRelPoint
+		GuildMOTD_Char.WindowX = GuildMOTD_Global.WindowX
+		GuildMOTD_Char.WindowY = GuildMOTD_Global.WindowY
 	end
 	GuildMOTD_Char.UseCharacterSettings = enabled
 end
@@ -113,13 +117,14 @@ end
 local function ApplyWindowPosition()
 	if not motd_frame then return end
 	motd_frame:ClearAllPoints();
-	if GuildMOTD_Global and GuildMOTD_Global.WindowPoint then
+	local point = GetSetting("WindowPoint");
+	if point then
 		motd_frame:SetPoint(
-			GuildMOTD_Global.WindowPoint,
+			point,
 			UIParent,
-			GuildMOTD_Global.WindowRelPoint or GuildMOTD_Global.WindowPoint,
-			GuildMOTD_Global.WindowX or 0,
-			GuildMOTD_Global.WindowY or 0
+			GetSetting("WindowRelPoint") or point,
+			GetSetting("WindowX") or 0,
+			GetSetting("WindowY") or 0
 		);
 	else
 		motd_frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0);
@@ -128,20 +133,18 @@ end
 
 local function SaveWindowPosition()
 	if not motd_frame then return end
-	EnsureSettingsTables();
 	local point, _, relativePoint, x, y = motd_frame:GetPoint(1);
-	GuildMOTD_Global.WindowPoint = point;
-	GuildMOTD_Global.WindowRelPoint = relativePoint;
-	GuildMOTD_Global.WindowX = x;
-	GuildMOTD_Global.WindowY = y;
+	SetSetting("WindowPoint", point);
+	SetSetting("WindowRelPoint", relativePoint);
+	SetSetting("WindowX", x);
+	SetSetting("WindowY", y);
 end
 
 function GuildMOTDFrameOpts_ResetPosition()
-	EnsureSettingsTables();
-	GuildMOTD_Global.WindowPoint = nil;
-	GuildMOTD_Global.WindowRelPoint = nil;
-	GuildMOTD_Global.WindowX = nil;
-	GuildMOTD_Global.WindowY = nil;
+	SetSetting("WindowPoint", nil);
+	SetSetting("WindowRelPoint", nil);
+	SetSetting("WindowX", nil);
+	SetSetting("WindowY", nil);
 	ApplyWindowPosition();
 end
 
@@ -433,6 +436,7 @@ function GuildMOTDFrameOpts_UseCharacterSettings_OnClick()
 	-- Refresh the other widgets to reflect the now-active scope.
 	GuildMOTDFrameOpts_CancelOrLoad();
 	ApplyOpacity(GetSetting("Opacity"));
+	ApplyWindowPosition();
 end
 
 function GuildMOTDFrameOpts_OnLoad(panel)
