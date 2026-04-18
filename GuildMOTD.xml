@@ -20,7 +20,7 @@
 
 		<Frames>
 
-	<CheckButton name="GuildMOTDFrameOpts_ShowOnlyChanges" inherits="UICheckButtonTemplate">
+	<CheckButton name="GuildMOTDFrameOpts_UseCharacterSettings" inherits="UICheckButtonTemplate">
 				<Size>
 					<AbsDimension x="32" y="32"/>
 				</Size>
@@ -29,6 +29,20 @@
 					<Anchor point="TOPLEFT" relativeTo="$parent_Head">
 						<Offset>
 							<AbsDimension x="25" y="-40"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+	</CheckButton>
+
+	<CheckButton name="GuildMOTDFrameOpts_ShowOnlyChanges" inherits="UICheckButtonTemplate">
+				<Size>
+					<AbsDimension x="32" y="32"/>
+				</Size>
+
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="GuildMOTDFrameOpts_UseCharacterSettings" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="0" y="-5"/>
 						</Offset>
 					</Anchor>
 				</Anchors>

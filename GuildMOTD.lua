@@ -5,7 +5,6 @@ local in_combat = false;
 local motd_change_pending = false;
 local debug = false
 local GuildMOTD_colour_name = "Guild|cFF00FF00MOTD|r"
-local GuildMOTD_panel_name = GuildMOTD_colour_name
 
 local State_StartingUp = 1
 local State_SeekingData = 2
@@ -19,6 +18,86 @@ local motd_frame_text = nil
 local motd_ok_button = nil
 local options_category = nil
 local header_frame = nil
+local guild_name_text = nil
+local guild_emblem_left = nil
+local guild_emblem_left_bg = nil
+local guild_emblem_left_border = nil
+local guild_emblem_right = nil
+local guild_emblem_right_bg = nil
+local guild_emblem_right_border = nil
+
+local function UpdateGuildInfo()
+	if not guild_name_text then
+		return
+	end
+
+	local guildName = GetGuildInfo("player")
+
+	if guildName and IsInGuild() then
+		guild_name_text:SetText(guildName)
+		guild_name_text:Show()
+		SetSmallGuildTabardTextures("player", guild_emblem_left, guild_emblem_left_bg, guild_emblem_left_border)
+		SetSmallGuildTabardTextures("player", guild_emblem_right, guild_emblem_right_bg, guild_emblem_right_border)
+		guild_emblem_left:Show(); guild_emblem_left_bg:Show(); guild_emblem_left_border:Show()
+		guild_emblem_right:Show(); guild_emblem_right_bg:Show(); guild_emblem_right_border:Show()
+	else
+		guild_name_text:SetText("")
+		guild_name_text:Hide()
+		guild_emblem_left:Hide(); guild_emblem_left_bg:Hide(); guild_emblem_left_border:Hide()
+		guild_emblem_right:Hide(); guild_emblem_right_bg:Hide(); guild_emblem_right_border:Hide()
+	end
+end
+
+local function EnsureSettingsTables()
+	if GuildMOTD_Global == nil then
+		-- Migrate from legacy flat per-character vars if present (one-time, on upgrade).
+		GuildMOTD_Global = {
+			ShowOnlyChanges = (GuildMOTD_ShowOnlyChanges ~= nil) and GuildMOTD_ShowOnlyChanges or false,
+			ShowOncePerSession = (GuildMOTD_ShowOncePerSession ~= nil) and GuildMOTD_ShowOncePerSession or false,
+			Opacity = GuildMOTD_Opacity or 0.9,
+		}
+		-- Clear the legacy vars so they don't linger.
+		GuildMOTD_ShowOnlyChanges = nil
+		GuildMOTD_ShowOncePerSession = nil
+		GuildMOTD_Opacity = nil
+	end
+	if GuildMOTD_Char == nil then
+		GuildMOTD_Char = {
+			UseCharacterSettings = false,
+			ShowOnlyChanges = GuildMOTD_Global.ShowOnlyChanges,
+			ShowOncePerSession = GuildMOTD_Global.ShowOncePerSession,
+			Opacity = GuildMOTD_Global.Opacity,
+		}
+	end
+end
+
+local function GetSetting(key)
+	EnsureSettingsTables()
+	if GuildMOTD_Char.UseCharacterSettings then
+		return GuildMOTD_Char[key]
+	end
+	return GuildMOTD_Global[key]
+end
+
+local function SetSetting(key, value)
+	EnsureSettingsTables()
+	if GuildMOTD_Char.UseCharacterSettings then
+		GuildMOTD_Char[key] = value
+	else
+		GuildMOTD_Global[key] = value
+	end
+end
+
+local function SetUseCharacterSettings(enabled)
+	EnsureSettingsTables()
+	if enabled and not GuildMOTD_Char.UseCharacterSettings then
+		-- Copy current global values into char table so behavior is seamless at toggle time.
+		GuildMOTD_Char.ShowOnlyChanges = GuildMOTD_Global.ShowOnlyChanges
+		GuildMOTD_Char.ShowOncePerSession = GuildMOTD_Global.ShowOncePerSession
+		GuildMOTD_Char.Opacity = GuildMOTD_Global.Opacity
+	end
+	GuildMOTD_Char.UseCharacterSettings = enabled
+end
 
 local function ApplyOpacity(alpha)
 	alpha = alpha or 0.9;
@@ -41,9 +120,9 @@ local function build_frame()
 	 	insets = { left = 11, right = 11, top = 11, bottom = 10 }
 	})
 
-	motd_frame:SetBackdropColor(0, 0, 0, GuildMOTD_Opacity or 0.9);
+	motd_frame:SetBackdropColor(0, 0, 0, GetSetting("Opacity"));
 	motd_frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-	motd_frame:SetSize(440,200)
+	motd_frame:SetSize(480, 240)
 	motd_frame:SetMovable(true)
 
 	header_frame = CreateFrame("Frame", "GuildMOTDHeaderFrame", motd_frame, BackdropTemplateMixin and "BackdropTemplate")
@@ -55,8 +134,9 @@ local function build_frame()
 	 	edgeSize = 28,
 	 	insets = { left = 5, right = 5, top = 5, bottom = 5 }
 	})
-	header_frame:SetBackdropColor(0, 0, 0, GuildMOTD_Opacity or 0.9);
-	header_frame:SetPoint("CENTER", motd_frame, "TOP", 0, 0)
+	header_frame:SetBackdropColor(0, 0, 0, GetSetting("Opacity"));
+	-- Header just above main box, almost touching.
+	header_frame:SetPoint("BOTTOM", motd_frame, "TOP", 0, -8)
 
 	local title_text = header_frame:CreateFontString("GuildMOTDTitleText", "ARTWORK")
 	title_text:SetFontObject(GameFontNormal)
@@ -64,20 +144,53 @@ local function build_frame()
 	title_text:SetJustifyH("CENTER")
 
 	local title_string_width = title_text:GetStringWidth()
-	local title_string_height = 48; --title_text:GetStringHeight()
+	local title_string_height = 40;
 
 	header_frame:SetSize(title_string_width * 1.4, title_string_height)
 	title_text:SetSize(title_string_width, title_string_height)
 
 	title_text:SetPoint("CENTER", header_frame, "CENTER", 0, 0)
 
+	-- Guild name row: guild name centered near top, flanked by tabard emblems.
+	guild_name_text = motd_frame:CreateFontString("GuildMOTDGuildNameText", "ARTWORK")
+	guild_name_text:SetFontObject(GameFontNormalLarge)
+	guild_name_text:SetJustifyH("CENTER")
+	guild_name_text:SetPoint("TOP", motd_frame, "TOP", 0, -24)
+	guild_name_text:SetSize(320, 28)
 
+	local emblem_size = 36
+
+	guild_emblem_left_bg = motd_frame:CreateTexture(nil, "BACKGROUND")
+	guild_emblem_left_bg:SetSize(emblem_size, emblem_size)
+	guild_emblem_left_bg:SetPoint("RIGHT", guild_name_text, "LEFT", -6, 0)
+
+	guild_emblem_left = motd_frame:CreateTexture(nil, "ARTWORK")
+	guild_emblem_left:SetSize(emblem_size, emblem_size)
+	guild_emblem_left:SetPoint("CENTER", guild_emblem_left_bg, "CENTER")
+
+	guild_emblem_left_border = motd_frame:CreateTexture(nil, "OVERLAY")
+	guild_emblem_left_border:SetSize(emblem_size, emblem_size)
+	guild_emblem_left_border:SetPoint("CENTER", guild_emblem_left_bg, "CENTER")
+
+	guild_emblem_right_bg = motd_frame:CreateTexture(nil, "BACKGROUND")
+	guild_emblem_right_bg:SetSize(emblem_size, emblem_size)
+	guild_emblem_right_bg:SetPoint("LEFT", guild_name_text, "RIGHT", 6, 0)
+
+	guild_emblem_right = motd_frame:CreateTexture(nil, "ARTWORK")
+	guild_emblem_right:SetSize(emblem_size, emblem_size)
+	guild_emblem_right:SetPoint("CENTER", guild_emblem_right_bg, "CENTER")
+
+	guild_emblem_right_border = motd_frame:CreateTexture(nil, "OVERLAY")
+	guild_emblem_right_border:SetSize(emblem_size, emblem_size)
+	guild_emblem_right_border:SetPoint("CENTER", guild_emblem_right_bg, "CENTER")
+
+	-- MOTD text: moved down below the guild name row, with wider left/right margins.
 	motd_frame_text = motd_frame:CreateFontString("GuildMOTDFrameText", "ARTWORK")
 	motd_frame_text:SetFont("Fonts\\FRIZQT__.TTF", 16)
 	motd_frame_text:SetTextColor(0, 1, 0, 0.9)
-	motd_frame_text:SetPoint("CENTER", motd_frame, "CENTER", 0, 15)
+	motd_frame_text:SetPoint("TOP", motd_frame, "TOP", 0, -70)
 	motd_frame_text:SetJustifyH("CENTER")
-	motd_frame_text:SetSize(420, 100)
+	motd_frame_text:SetSize(400, 110)
 
 	motd_ok_button = CreateFrame("Button", "GuildMOTDFrameOkButton", motd_frame, "UIPanelButtonTemplate")
 	motd_ok_button:SetText(OKAY)
@@ -87,11 +200,14 @@ local function build_frame()
 
 	tinsert(UISpecialFrames, motd_frame:GetName());
 
+	-- Initial guild info pass; guild data may not be ready yet — event handler will refresh.
+	UpdateGuildInfo();
+
 end
 
 local function ShowChanged(motd)
 
-	if (GuildMOTD_ShowOnlyChanges and (motd == GuildMOTD_LastMOTD)) then
+	if (GetSetting("ShowOnlyChanges") and (motd == GuildMOTD_LastMOTD)) then
 		return false;
 	end
 
@@ -122,7 +238,7 @@ local function ShouldShow(motd)
 		return false;
 	end
 
-	if (GuildMOTD_ShowOncePerSession and GuildMOTD_MOTDShownThisSession) then
+	if (GetSetting("ShowOncePerSession") and GuildMOTD_MOTDShownThisSession) then
 		return false;
 	end
 
@@ -170,6 +286,8 @@ local function OnEvent(self, event, arg1, ...)
 	end
 
 	if (event == "GUILD_MOTD") or (event == "GUILD_ROSTER_UPDATE") then
+
+		UpdateGuildInfo();
 
 		local motd = arg1 or GetGuildRosterMOTD()
 
@@ -246,26 +364,38 @@ end
 
 
 function GuildMOTDFrameOpts_CancelOrLoad()
-	GuildMOTDFrameOpts_ShowOnlyChanges:SetChecked(GuildMOTD_ShowOnlyChanges);
-	GuildMOTDFrameOpts_ShowOncePerSession:SetChecked(GuildMOTD_ShowOncePerSession);
-	GuildMOTDFrameOpts_OpacitySlider:SetValue(GuildMOTD_Opacity or 0.9);
+	EnsureSettingsTables();
+	GuildMOTDFrameOpts_UseCharacterSettings:SetChecked(GuildMOTD_Char.UseCharacterSettings);
+	GuildMOTDFrameOpts_ShowOnlyChanges:SetChecked(GetSetting("ShowOnlyChanges"));
+	GuildMOTDFrameOpts_ShowOncePerSession:SetChecked(GetSetting("ShowOncePerSession"));
+	GuildMOTDFrameOpts_OpacitySlider:SetValue(GetSetting("Opacity"));
 end
 
 function GuildMOTDFrameOpts_Close()
-	GuildMOTD_ShowOnlyChanges = GuildMOTDFrameOpts_ShowOnlyChanges:GetChecked();
-	GuildMOTD_ShowOncePerSession = GuildMOTDFrameOpts_ShowOncePerSession:GetChecked();
-	GuildMOTD_Opacity = GuildMOTDFrameOpts_OpacitySlider:GetValue();
+	SetSetting("ShowOnlyChanges", GuildMOTDFrameOpts_ShowOnlyChanges:GetChecked());
+	SetSetting("ShowOncePerSession", GuildMOTDFrameOpts_ShowOncePerSession:GetChecked());
+	SetSetting("Opacity", GuildMOTDFrameOpts_OpacitySlider:GetValue());
 end
 
+
+function GuildMOTDFrameOpts_UseCharacterSettings_OnClick()
+	local enabled = GuildMOTDFrameOpts_UseCharacterSettings:GetChecked();
+	SetUseCharacterSettings(enabled);
+	-- Refresh the other widgets to reflect the now-active scope.
+	GuildMOTDFrameOpts_CancelOrLoad();
+	ApplyOpacity(GetSetting("Opacity"));
+end
 
 function GuildMOTDFrameOpts_OnLoad(panel)
 
 	-- Set the Text for the Check boxes.
+	GuildMOTDFrameOpts_UseCharacterSettingsText:SetText("Use Character-Specific Settings");
 	GuildMOTDFrameOpts_ShowOnlyChangesText:SetText("Only Show Changes");
 	GuildMOTDFrameOpts_ShowOncePerSessionText:SetText("Only Show Once Per Session");
 
 	-- Save state immediately when checkboxes are toggled.
 	-- (The new Settings API doesn't reliably call panel.okay, so we persist on each click.)
+	GuildMOTDFrameOpts_UseCharacterSettings:HookScript("OnClick", GuildMOTDFrameOpts_UseCharacterSettings_OnClick);
 	GuildMOTDFrameOpts_ShowOnlyChanges:HookScript("OnClick", GuildMOTDFrameOpts_Close);
 	GuildMOTDFrameOpts_ShowOncePerSession:HookScript("OnClick", GuildMOTDFrameOpts_Close);
 
@@ -277,20 +407,11 @@ function GuildMOTDFrameOpts_OnLoad(panel)
 	GuildMOTDFrameOpts_OpacitySliderHigh:SetText("100%");
 	GuildMOTDFrameOpts_OpacitySliderText:SetText("Window Opacity");
 	GuildMOTDFrameOpts_OpacitySlider:HookScript("OnValueChanged", function(self, value)
-		GuildMOTD_Opacity = value;
+		SetSetting("Opacity", value);
 		ApplyOpacity(value);
 	end);
 
 	GuildMOTDFrameOpts_Head:SetText(GuildMOTD_colour_name .. " Options (" .. C_AddOns.GetAddOnMetadata("GuildMOTD", "Version") .. ")")
-
-	-- Set the name for the Category for the Panel
-	panel.name = GuildMOTD_panel_name
-
-	-- When the player clicks okay, set the Saved Variables to the current Check Box setting
-	panel.okay = function (self) GuildMOTDFrameOpts_Close(); end;
-
-	-- When the player clicks cancel, set the Check Box status to the Saved Variables.
-	panel.cancel = function (self)  GuildMOTDFrameOpts_CancelOrLoad();  end;
 
 	-- Add the panel to the Interface Options
 	options_category = Settings.RegisterCanvasLayoutCategory(panel, "GuildMOTD")
