@@ -1,8 +1,8 @@
 ## Interface: 120000
-## Title: Guild|cFF00FF00MOTD
-## Notes: Guild MOTD viewer
+## Title: Guild |cFF00FF00MOTD|r Popup
+## Notes: Shows a popup with your guild's Message of the Day on login or when it changes.
 ## Author: Mythris
-## Version: 12.0.1
+## Version: 12.0.1-2
 ## X-Category: Guild
 ## X-Curse-Project-ID: 1073302
 ## SavedVariables: GuildMOTD_Global

@@ -4,7 +4,8 @@ local in_world = false;
 local in_combat = false;
 local motd_change_pending = false;
 local debug = false
-local GuildMOTD_colour_name = "Guild|cFF00FF00MOTD|r"
+local GuildMOTD_colour_name = "Guild |cFF00FF00MOTD|r Popup"
+local GuildMOTD_ldb_name = "Guild|cFF00FF00MOTD|r"
 
 local State_StartingUp = 1
 local State_SeekingData = 2
@@ -53,7 +54,7 @@ local function EnsureSettingsTables()
 		-- Migrate from legacy flat per-character vars if present (one-time, on upgrade).
 		GuildMOTD_Global = {
 			ShowOnlyChanges = (GuildMOTD_ShowOnlyChanges ~= nil) and GuildMOTD_ShowOnlyChanges or false,
-			ShowOncePerSession = (GuildMOTD_ShowOncePerSession ~= nil) and GuildMOTD_ShowOncePerSession or false,
+			ShowOncePerSession = (GuildMOTD_ShowOncePerSession == nil) and true or GuildMOTD_ShowOncePerSession,
 			Opacity = GuildMOTD_Opacity or 0.9,
 		}
 		-- Clear the legacy vars so they don't linger.
@@ -200,8 +201,11 @@ local function build_frame()
 
 	tinsert(UISpecialFrames, motd_frame:GetName());
 
-	-- Initial guild info pass; guild data may not be ready yet — event handler will refresh.
+	-- Initial guild info pass; guild data may not be ready yet on first login.
+	-- Schedule delayed retries to catch the race where guild data arrives after PLAYER_ENTERING_WORLD.
 	UpdateGuildInfo();
+	C_Timer.After(2, UpdateGuildInfo);
+	C_Timer.After(5, UpdateGuildInfo);
 
 end
 
@@ -451,7 +455,7 @@ if LDB then
 	LDB:NewDataObject("GuildMOTD",
 	 {
 		type = "data source",
-		text = GuildMOTD_colour_name,
+		text = GuildMOTD_ldb_name,
 		icon = "Interface\\AddOns\\GuildMOTD\\Textures\\icon.tga",
 		OnClick = GuildMOTDLDB_OnClick,
 		OnTooltipShow = GuildMOTDLDB_OnTooltipShow,
