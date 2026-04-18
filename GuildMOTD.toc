@@ -2,7 +2,7 @@
 ## Title: Guild|cFF00FF00MOTD
 ## Notes: Guild MOTD viewer
 ## Author: Mythris
-## Version: 12.0.0.00
+## Version: 12.0.1
 ## X-Category: Guild
 ## SavedVariables: GuildMOTD_Global
 ##SavedVariablesPerCharacter: GuildMOTD_Char, GuildMOTD_LastMOTD, GuildMOTD_MOTDShownThisSession
