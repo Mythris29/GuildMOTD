@@ -4,6 +4,7 @@
 ## Author: Mythris
 ## Version: 12.0.1
 ## X-Category: Guild
+## X-Curse-Project-ID: 1073302
 ## SavedVariables: GuildMOTD_Global
 ##SavedVariablesPerCharacter: GuildMOTD_Char, GuildMOTD_LastMOTD, GuildMOTD_MOTDShownThisSession
 
