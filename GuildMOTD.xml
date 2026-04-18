@@ -33,6 +33,34 @@
 					</Anchor>
 				</Anchors>
 	</CheckButton>
+
+	<CheckButton name="GuildMOTDFrameOpts_ShowOncePerSession" inherits="UICheckButtonTemplate">
+				<Size>
+					<AbsDimension x="32" y="32"/>
+				</Size>
+
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="GuildMOTDFrameOpts_ShowOnlyChanges" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="0" y="-5"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+	</CheckButton>
+
+	<Slider name="GuildMOTDFrameOpts_OpacitySlider" inherits="OptionsSliderTemplate">
+				<Size>
+					<AbsDimension x="180" y="17"/>
+				</Size>
+
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="GuildMOTDFrameOpts_ShowOncePerSession" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="10" y="-30"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+	</Slider>
 		</Frames>
 
         <Scripts>

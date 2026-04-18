@@ -17,6 +17,18 @@ local motd_frame = CreateFrame("Frame", "GuildMOTDFrame", UIParent, BackdropTemp
 motd_frame:Hide()
 local motd_frame_text = nil
 local motd_ok_button = nil
+local options_category = nil
+local header_frame = nil
+
+local function ApplyOpacity(alpha)
+	alpha = alpha or 0.9;
+	if motd_frame then
+		motd_frame:SetBackdropColor(0, 0, 0, alpha);
+	end
+	if header_frame then
+		header_frame:SetBackdropColor(0, 0, 0, alpha);
+	end
+end
 
 local function build_frame()
 
@@ -29,12 +41,12 @@ local function build_frame()
 	 	insets = { left = 11, right = 11, top = 11, bottom = 10 }
 	})
 
-	motd_frame:SetBackdropColor(0, 0, 0, 0.9);
+	motd_frame:SetBackdropColor(0, 0, 0, GuildMOTD_Opacity or 0.9);
 	motd_frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	motd_frame:SetSize(440,200)
 	motd_frame:SetMovable(true)
 
-	local header_frame = CreateFrame("Frame", "GuildMOTDHeaderFrame", motd_frame, BackdropTemplateMixin and "BackdropTemplate")
+	header_frame = CreateFrame("Frame", "GuildMOTDHeaderFrame", motd_frame, BackdropTemplateMixin and "BackdropTemplate")
 	header_frame:SetBackdrop({
 		bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
 	 	edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -43,7 +55,7 @@ local function build_frame()
 	 	edgeSize = 28,
 	 	insets = { left = 5, right = 5, top = 5, bottom = 5 }
 	})
-	header_frame:SetBackdropColor(0, 0, 0, 0.9);
+	header_frame:SetBackdropColor(0, 0, 0, GuildMOTD_Opacity or 0.9);
 	header_frame:SetPoint("CENTER", motd_frame, "TOP", 0, 0)
 
 	local title_text = header_frame:CreateFontString("GuildMOTDTitleText", "ARTWORK")
@@ -98,12 +110,23 @@ local function ShowMOTD(motd)
 
 	motd_frame_text:SetText(motd);
 
-	local string_width = motd_frame_text:GetStringWidth()
-	local string_height = motd_frame_text:GetStringHeight()
-
-
-
 	motd_frame:Show();
+
+	GuildMOTD_MOTDShownThisSession = true;
+
+end
+
+local function ShouldShow(motd)
+
+	if (not ShowChanged(motd)) then
+		return false;
+	end
+
+	if (GuildMOTD_ShowOncePerSession and GuildMOTD_MOTDShownThisSession) then
+		return false;
+	end
+
+	return true;
 
 end
 
@@ -115,6 +138,11 @@ local function OnEvent(self, event, arg1, ...)
 	if(not in_world and event == "PLAYER_ENTERING_WORLD") then
 
 		in_world = true;
+
+		local isInitialLogin = arg1;
+		if (isInitialLogin) then
+			GuildMOTD_MOTDShownThisSession = false;
+		end
 
 		motd_frame:UnregisterEvent("PLAYER_ENTERING_WORLD")
 
@@ -130,7 +158,7 @@ local function OnEvent(self, event, arg1, ...)
 			state = State_SeekingData
 		else
 			state = State_Normal
-			if (ShowChanged(motd)) then
+			if (ShouldShow(motd)) then
 				ShowMOTD(motd);
 			end
 		end
@@ -161,7 +189,7 @@ local function OnEvent(self, event, arg1, ...)
 		if (not in_combat) then
 			if(debug) then print("not in combat") end
 
-			if (ShowChanged(motd)) then
+			if (ShouldShow(motd)) then
 				ShowMOTD(motd);
 			end
 		else
@@ -187,7 +215,6 @@ end
 motd_frame:SetScript("OnEvent", OnEvent)
 motd_frame:SetScript("OnMouseDown", function(self) self:StartMoving(); end )
 motd_frame:SetScript("OnMouseUp", function(self) self:StopMovingOrSizing(); end )
-motd_frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); end )
 
 motd_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
@@ -207,39 +234,6 @@ end
 
 
 
-function GuildMOTD_HandleEvent(self, event, ...)
-
-
-
-	if (event == "GUILD_MOTD") or (event == "GUILD_ROSTER_UPDATE") then
-
-		local motd = GetGuildRosterMOTD()
-
-		if(debug) then print("MOTD is ", motd) end
-
-		if((motd == nil) or (string.len(motd) == 0)) then
-			if(debug) then print("MOTD is blank, returning") end
-			return
-		end
-
-		--This GUILD_ROSTER_UPDATE made the MOTD available, so stop listening to them
-		--any further changes will come via GUILD_MOTD
-		if(event == "GUILD_ROSTER_UPDATE") then
-			GuildMOTDFrame:UnregisterEvent("GUILD_ROSTER_UPDATE");
-		end
-
-		if (not in_combat) then
-			if(debug) then print("not in combat") end
-
-			if (ShowChanged(motd)) then
-				ShowMOTD(motd);
-			end
-		else
-			motd_change_pending = true;
-		end
-
-	end
-end
 
 
 
@@ -253,10 +247,14 @@ end
 
 function GuildMOTDFrameOpts_CancelOrLoad()
 	GuildMOTDFrameOpts_ShowOnlyChanges:SetChecked(GuildMOTD_ShowOnlyChanges);
+	GuildMOTDFrameOpts_ShowOncePerSession:SetChecked(GuildMOTD_ShowOncePerSession);
+	GuildMOTDFrameOpts_OpacitySlider:SetValue(GuildMOTD_Opacity or 0.9);
 end
 
 function GuildMOTDFrameOpts_Close()
 	GuildMOTD_ShowOnlyChanges = GuildMOTDFrameOpts_ShowOnlyChanges:GetChecked();
+	GuildMOTD_ShowOncePerSession = GuildMOTDFrameOpts_ShowOncePerSession:GetChecked();
+	GuildMOTD_Opacity = GuildMOTDFrameOpts_OpacitySlider:GetValue();
 end
 
 
@@ -264,6 +262,24 @@ function GuildMOTDFrameOpts_OnLoad(panel)
 
 	-- Set the Text for the Check boxes.
 	GuildMOTDFrameOpts_ShowOnlyChangesText:SetText("Only Show Changes");
+	GuildMOTDFrameOpts_ShowOncePerSessionText:SetText("Only Show Once Per Session");
+
+	-- Save state immediately when checkboxes are toggled.
+	-- (The new Settings API doesn't reliably call panel.okay, so we persist on each click.)
+	GuildMOTDFrameOpts_ShowOnlyChanges:HookScript("OnClick", GuildMOTDFrameOpts_Close);
+	GuildMOTDFrameOpts_ShowOncePerSession:HookScript("OnClick", GuildMOTDFrameOpts_Close);
+
+	-- Configure the opacity slider.
+	GuildMOTDFrameOpts_OpacitySlider:SetMinMaxValues(0.1, 1.0);
+	GuildMOTDFrameOpts_OpacitySlider:SetValueStep(0.05);
+	GuildMOTDFrameOpts_OpacitySlider:SetObeyStepOnDrag(true);
+	GuildMOTDFrameOpts_OpacitySliderLow:SetText("10%");
+	GuildMOTDFrameOpts_OpacitySliderHigh:SetText("100%");
+	GuildMOTDFrameOpts_OpacitySliderText:SetText("Window Opacity");
+	GuildMOTDFrameOpts_OpacitySlider:HookScript("OnValueChanged", function(self, value)
+		GuildMOTD_Opacity = value;
+		ApplyOpacity(value);
+	end);
 
 	GuildMOTDFrameOpts_Head:SetText(GuildMOTD_colour_name .. " Options (" .. C_AddOns.GetAddOnMetadata("GuildMOTD", "Version") .. ")")
 
@@ -277,8 +293,8 @@ function GuildMOTDFrameOpts_OnLoad(panel)
 	panel.cancel = function (self)  GuildMOTDFrameOpts_CancelOrLoad();  end;
 
 	-- Add the panel to the Interface Options
-	local category = Settings.RegisterCanvasLayoutCategory(panel, "GuildMOTD")
-	Settings.RegisterAddOnCategory(category);
+	options_category = Settings.RegisterCanvasLayoutCategory(panel, "GuildMOTD")
+	Settings.RegisterAddOnCategory(options_category);
 end
 
 
@@ -295,9 +311,9 @@ function GuildMOTDLDB_OnClick(clicked_frame, button)
 			local motd = GetGuildRosterMOTD();
 			ShowMOTD(motd);
 	elseif button == "RightButton" then
-		--Call this twice otherwise it doesn't work properly. Thanks, Blizzard.
-		InterfaceOptionsFrame_OpenToCategory(GuildMOTD_panel_name);
-		InterfaceOptionsFrame_OpenToCategory(GuildMOTD_panel_name);
+		if options_category then
+			Settings.OpenToCategory(options_category.ID)
+		end
 	end
 end
 
@@ -315,7 +331,7 @@ if LDB then
 	 {
 		type = "data source",
 		text = GuildMOTD_colour_name,
-		icon = "Interface\\ICONS\\INV_Misc_Food_148_CupCake",
+		icon = "Interface\\AddOns\\GuildMOTD\\Textures\\icon.tga",
 		OnClick = GuildMOTDLDB_OnClick,
 		OnTooltipShow = GuildMOTDLDB_OnTooltipShow,
 	})
