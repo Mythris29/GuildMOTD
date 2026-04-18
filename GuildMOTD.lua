@@ -110,6 +110,41 @@ local function ApplyOpacity(alpha)
 	end
 end
 
+local function ApplyWindowPosition()
+	if not motd_frame then return end
+	motd_frame:ClearAllPoints();
+	if GuildMOTD_Global and GuildMOTD_Global.WindowPoint then
+		motd_frame:SetPoint(
+			GuildMOTD_Global.WindowPoint,
+			UIParent,
+			GuildMOTD_Global.WindowRelPoint or GuildMOTD_Global.WindowPoint,
+			GuildMOTD_Global.WindowX or 0,
+			GuildMOTD_Global.WindowY or 0
+		);
+	else
+		motd_frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0);
+	end
+end
+
+local function SaveWindowPosition()
+	if not motd_frame then return end
+	EnsureSettingsTables();
+	local point, _, relativePoint, x, y = motd_frame:GetPoint(1);
+	GuildMOTD_Global.WindowPoint = point;
+	GuildMOTD_Global.WindowRelPoint = relativePoint;
+	GuildMOTD_Global.WindowX = x;
+	GuildMOTD_Global.WindowY = y;
+end
+
+function GuildMOTDFrameOpts_ResetPosition()
+	EnsureSettingsTables();
+	GuildMOTD_Global.WindowPoint = nil;
+	GuildMOTD_Global.WindowRelPoint = nil;
+	GuildMOTD_Global.WindowX = nil;
+	GuildMOTD_Global.WindowY = nil;
+	ApplyWindowPosition();
+end
+
 local function build_frame()
 
 	motd_frame:SetBackdrop({
@@ -122,7 +157,7 @@ local function build_frame()
 	})
 
 	motd_frame:SetBackdropColor(0, 0, 0, GetSetting("Opacity"));
-	motd_frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+	ApplyWindowPosition()
 	motd_frame:SetSize(480, 240)
 	motd_frame:SetMovable(true)
 
@@ -219,6 +254,10 @@ local function ShowChanged(motd)
 
 end
 
+local function IsNewMOTD(motd)
+	return motd ~= GuildMOTD_LastMOTD;
+end
+
 local function ShowMOTD(motd)
 
 	GuildMOTD_LastMOTD = motd;
@@ -238,6 +277,12 @@ end
 
 local function ShouldShow(motd)
 
+	-- Always show a newly changed MOTD (bypasses ShowOncePerSession for real updates)
+	if (IsNewMOTD(motd)) then
+		return true;
+	end
+
+	-- Same MOTD as last-shown. Apply filters.
 	if (not ShowChanged(motd)) then
 		return false;
 	end
@@ -336,7 +381,7 @@ end
 
 motd_frame:SetScript("OnEvent", OnEvent)
 motd_frame:SetScript("OnMouseDown", function(self) self:StartMoving(); end )
-motd_frame:SetScript("OnMouseUp", function(self) self:StopMovingOrSizing(); end )
+motd_frame:SetScript("OnMouseUp", function(self) self:StopMovingOrSizing(); SaveWindowPosition(); end )
 
 motd_frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 

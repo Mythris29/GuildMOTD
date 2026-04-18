@@ -75,6 +75,26 @@
 					</Anchor>
 				</Anchors>
 	</Slider>
+
+	<Button name="GuildMOTDFrameOpts_ResetPositionButton" inherits="UIPanelButtonTemplate" text="Reset Window Position">
+				<Size>
+					<AbsDimension x="180" y="22"/>
+				</Size>
+
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="GuildMOTDFrameOpts_OpacitySlider" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="0" y="-25"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+
+				<Scripts>
+					<OnClick>
+						GuildMOTDFrameOpts_ResetPosition();
+					</OnClick>
+				</Scripts>
+	</Button>
 		</Frames>
 
         <Scripts>
