@@ -2,9 +2,10 @@
 ## Title: Guild |cFF00FF00MOTD|r Popup
 ## Notes: Shows a popup with your guild's Message of the Day on login or when it changes.
 ## Author: Mythris
-## Version: 12.0.1-4
+## Version: 12.0.1-5
 ## X-Category: Guild
 ## X-Curse-Project-ID: 1073302
+## IconTexture: Interface\AddOns\GuildMOTD\Textures\icon
 ## SavedVariables: GuildMOTD_Global
 ##SavedVariablesPerCharacter: GuildMOTD_Char, GuildMOTD_LastMOTD, GuildMOTD_MOTDShownThisSession
 
