@@ -1,0 +1,82 @@
+name: WoW Patch Watch
+
+# Checks the live retail WoW version against this repo's committed .toc Interface
+# and opens a reminder issue when a newer patch has gone live. Runs on GitHub's
+# servers - no PC or app required. Free on public repos.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'      # Mondays 09:00 UTC (GitHub cron is always UTC)
+  workflow_dispatch:          # adds a "Run workflow" button for on-demand testing
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare live retail patch to committed TOC
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # --- Baseline: the Interface currently committed in this repo's .toc ---
+          toc=$(ls *.toc | head -n1)
+          committed=$(grep -iE '^##[[:space:]]*Interface:' "$toc" | grep -oE '[0-9]+' | head -n1)
+          echo "Committed interface : $committed  (from $toc)"
+
+          # --- Live retail version from Blizzard's TACT version service ---------
+          # Product 'wow' = retail only (PTR=wowt, beta=wow_beta, classic=wow_classic).
+          # Newer HTTPS endpoint preferred; fall back to the classic Ribbit HTTP port.
+          raw=$(curl -fsSL "https://us.version.battle.net/v2/products/wow/versions" \
+                || curl -fsSL "http://us.patch.battle.net:1119/wow/versions")
+
+          header=$(printf '%s\n' "$raw" | head -n1)
+          idx=$(printf '%s\n' "$header" | tr '|' '\n' | grep -niE '^VersionsName' | cut -d: -f1)
+          if [ -z "${idx:-}" ]; then echo "Could not find VersionsName column; aborting."; exit 1; fi
+
+          vname=$(printf '%s\n' "$raw" | awk -F'|' -v i="$idx" 'tolower($1) ~ /^us/ {print $i; exit}')
+          echo "Live VersionsName   : $vname"
+
+          maj=$(echo "$vname" | cut -d. -f1)
+          min=$(echo "$vname" | cut -d. -f2)
+          pat=$(echo "$vname" | cut -d. -f3)
+          live=$(printf '%02d%02d%02d' "$maj" "$min" "$pat")
+          livever="${maj}.${min}.${pat}"
+          echo "Live interface      : $live  ($livever)"
+
+          # --- Compare (base-10 to avoid octal surprises) -----------------------
+          if [ "$((10#$live))" -le "$((10#$committed))" ]; then
+            echo "No new retail patch. Addons still current."
+            exit 0
+          fi
+
+          echo "New retail patch detected."
+          title="WoW patch $livever is live - bump addon TOCs (interface $live)"
+
+          # De-dupe: don't stack duplicate open issues for the same patch.
+          open=$(gh issue list --state open --search "$title in:title" --json number --jq 'length')
+          if [ "$open" -gt 0 ]; then
+            echo "A matching open issue already exists; nothing to do."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          @Mythris29 - live retail WoW is now **$livever** (interface **$live**), newer than the committed **$committed**.
+
+          To update all three addons:
+          1. Open \`D:\\_AI\\Claude\\Wow Addons\` and double-click **Update-WowToc.cmd**
+          2. Choose **[1] Auto-detect** (or **[2]** and type \`$livever\`)
+          3. Review the preview and confirm - this bumps + tags all three addons, triggering the BigWigs CurseForge release.
+
+          _Opened automatically by the patch-watch workflow. It reads this repo's committed Interface as its baseline, so it will stop reminding once you've pushed the bump._
+          EOF
+          )
+
+          gh issue create --title "$title" --body "$body"
+          echo "Reminder issue opened."
